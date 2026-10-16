@@ -29,6 +29,11 @@ prepare_vm() {
 		sleep 1
 	done
 
+	info "Waiting for VM networking"
+	# The agent can accept commands before D-Bus and NetworkManager have started.
+	lxc exec "${VM_NAME}" -- systemctl start NetworkManager
+	lxc exec "${VM_NAME}" -- nm-online --quiet --timeout=60
+
 	info "Installing utilities in VM"
 
 	# Try avoid gnome-initial-setup to start.
