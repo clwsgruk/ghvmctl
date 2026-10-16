@@ -36,10 +36,11 @@ export default class Screenshots extends Extension {
                 GLib.build_filenamev([GLib.get_home_dir(), filename]));
             stream = file.replace(null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
             const screenshot = new Shell.Screenshot();
-            if (window)
-                await screenshot.screenshot_window(true, false, stream);
-            else
-                await screenshot.screenshot(false, stream);
+            const [success] = window
+                ? await screenshot.screenshot_window(true, false, stream)
+                : await screenshot.screenshot(false, stream);
+            if (!success)
+                throw new Error('GNOME Shell could not write the screenshot');
             stream.close(null);
             stream = null;
             invocation.return_value(new GLib.Variant('()', []));
