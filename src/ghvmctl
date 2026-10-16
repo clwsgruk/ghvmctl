@@ -54,6 +54,24 @@ prepare_vm() {
 	lxc exec "${VM_NAME}" -- apt-get update -qq
 	lxc exec "${VM_NAME}" -- apt-get install -q gnome-screenshot
 
+	# GNOME 45+ uses ES modules; newer Wayland shells reject gnome-screenshot.
+	local shell_version shell_major
+	shell_version="$(lxc exec "${VM_NAME}" -- gnome-shell --version)"
+	shell_major="${shell_version##* }"
+	shell_major="${shell_major%%.*}"
+	if (( shell_major >= 45 )); then
+		info "Installing the VM screenshot extension"
+		lxc -q file push -r "${GHVMCTL_RUNNER_PATH}/ghvmctl@snapcrafters.io" \
+			"${VM_NAME}/usr/share/gnome-shell/extensions/"
+		# A newly installed extension is discovered when the shell starts.
+		lxc exec "${VM_NAME}" -- systemctl restart gdm
+		lxc exec "${VM_NAME}" -- runuser -u ubuntu -- env \
+			DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
+			timeout 60 gdbus wait --session org.gnome.Shell
+		exec_in_vm gnome-extensions enable ghvmctl@snapcrafters.io
+		exec_in_vm timeout 60 gdbus wait --session io.snapcrafters.ghvmctl.Screenshot
+	fi
+
 	info "Configuring VM user settings"
 	exec_in_vm gsettings set org.gnome.desktop.lockdown disable-lock-screen true
 	exec_in_vm gsettings set org.gnome.desktop.session idle-delay 0
@@ -67,6 +85,21 @@ exec_in_vm() {
 	lxc exec "${VM_NAME}" -- sudo -u ubuntu bash -c "/bin/ghvmctl-runner $*"
 }
 
+# Capture through the guest extension, retaining the legacy backend on older GNOME.
+capture_in_vm() {
+	local window="$1" path="$2"
+	if lxc exec "${VM_NAME}" -- test -d /usr/share/gnome-shell/extensions/ghvmctl@snapcrafters.io; then
+		exec_in_vm timeout 30 gdbus call --session \
+			--dest io.snapcrafters.ghvmctl.Screenshot \
+			--object-path /io/snapcrafters/ghvmctl/Screenshot \
+			--method io.snapcrafters.ghvmctl.Screenshot.Capture "$window"
+	elif [[ "$window" == true ]]; then
+		exec_in_vm "timeout 30 gnome-screenshot -w -f $path"
+	else
+		exec_in_vm "timeout 30 gnome-screenshot -f $path"
+	fi
+}
+
 # Takes a screenshot of the full screen and pulls the file back from the VM to a file
 # named "screenshot-screen-$TIMESTAMP.png", last file is linked as "screenshot-screen.png".
 screenshot_full() {
@@ -74,7 +107,7 @@ screenshot_full() {
 	mkdir -p "${SCREENSHOTS_PATH}"
 	# Take a screenshot of the whole screen in the VM
 	timestamp="$(date +'%Y-%m-%d_%H%M%S')"
-	exec_in_vm "gnome-screenshot -f /home/ubuntu/screen.png"
+	capture_in_vm false /home/ubuntu/screen.png
 	# Pull the screenshot back to the host
 	output="screenshot-screen-$timestamp.png"
 	lxc file pull "${VM_NAME}/home/ubuntu/screen.png" "${SCREENSHOTS_PATH}/$output"
@@ -88,7 +121,7 @@ screenshot_window() {
 	mkdir -p "${SCREENSHOTS_PATH}"
 	# Take a screenshot of the active window in the VM
 	timestamp="$(date +'%Y-%m-%d_%H%M%S')"
-	exec_in_vm "gnome-screenshot -w -f /home/ubuntu/window.png"
+	capture_in_vm true /home/ubuntu/window.png
 	# Pull the screenshot back to the host
 	output="screenshot-window-$timestamp.png"
 	lxc file pull "${VM_NAME}/home/ubuntu/window.png" "${SCREENSHOTS_PATH}/$output"

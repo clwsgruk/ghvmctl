@@ -1,0 +1,6 @@
+{
+  "uuid": "ghvmctl@snapcrafters.io",
+  "name": "ghvmctl screenshots",
+  "description": "Non-interactive screenshots for disposable ghvmctl test VMs.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"]
+}

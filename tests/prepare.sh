@@ -17,6 +17,9 @@ if [[ $1 != exec ]]; then
 fi
 shift 3
 case "$*" in
+    'gnome-shell --version')
+        printf 'GNOME Shell 50.1\n'
+        ;;
     'systemctl start NetworkManager')
         touch "$TEST_STATE/manager"
         ;;

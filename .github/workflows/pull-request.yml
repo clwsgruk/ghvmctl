@@ -46,8 +46,9 @@ jobs:
           ghvmctl run-snap hello
 
           ghvmctl snap-run signal-desktop
+          # The process can start before its Wayland window has mapped.
+          timeout 90 bash -c 'until ghvmctl screenshot-window; do sleep 2; done'
           ghvmctl screenshot-full
-          ghvmctl screenshot-window
 
           ghvmctl snap-is-running signal-desktop
           ghvmctl snap-is-running terraform && exit 1 || true
@@ -70,6 +71,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Run regression tests
+        run: |
+          bash tests/prepare.sh
+          node --test tests/screenshots.mjs
       - name: Run ShellCheck
         uses: ludeeus/action-shellcheck@master
         with:

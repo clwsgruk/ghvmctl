@@ -46,6 +46,31 @@ jobs:
 
 [snapcrafters/ci]: https://github.com/snapcrafters/ci/main/setup-ghvmctl
 
+## Guest preparation and screenshots
+
+`prepare` waits for NetworkManager to establish a connection before installing
+utilities. On GNOME 45 and newer it also installs a small screenshot extension
+inside the disposable VM and restarts GDM once to load it. Older GNOME releases
+continue to use `gnome-screenshot`.
+
+The extension uses GNOME Shell's own screenshot implementation for both the
+screen and the active application window, including native Wayland windows.
+It exposes only those two captures, writing fixed files in the guest user's
+home. It does not enable GNOME's global unsafe mode or change the host desktop.
+This non-interactive screenshot service is intended only for disposable test
+VMs, not personal desktop sessions.
+
+`screenshot-window` fails if no application window is focused. A running process
+can precede its window, so callers should retry capture with a bounded timeout
+rather than treating the desktop as an application screenshot.
+
+Local regression checks:
+
+```shell
+bash tests/prepare.sh
+node --test tests/screenshots.mjs
+```
+
 ## How to contribute to this snap
 
 Thanks for your interest! Below you find instructions to help you contribute to this snap.
