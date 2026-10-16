@@ -7,13 +7,14 @@ const source = readFileSync(new URL('../src/ghvmctl@snapcrafters.io/extension.js
     .replace(/^import .*;\n/gm, '')
     .replace('export default class', 'class');
 
-function fixture({desktop = false, fail = false} = {}) {
+function fixture({desktop = false, fail = false, nativeFailure = false} = {}) {
     const calls = [];
     const stream = {close: () => calls.push('close')};
     const capture = kind => {
         calls.push(kind);
         if (fail)
             throw new Error('Capture failed');
+        return [!nativeFailure, null];
     };
     const context = {
         Extension: class {},
@@ -32,8 +33,8 @@ function fixture({desktop = false, fail = false} = {}) {
             }})},
         },
         Shell: {Screenshot: class {
-            async screenshot() {capture('screen');}
-            async screenshot_window() {capture('window');}
+            async screenshot() {return capture('screen');}
+            async screenshot_window() {return capture('window');}
         }},
     };
     const Screenshots = vm.runInNewContext(`${source}\nScreenshots;`, context);
@@ -56,6 +57,12 @@ test('desktop focus is not accepted as an application window', async () => {
     const f = fixture({desktop: true});
     await f.extension.CaptureAsync([true], f.invocation);
     assert.deepEqual(f.calls, ['error']);
+});
+
+test('native false results are errors, not successful screenshots', async () => {
+    const f = fixture({nativeFailure: true});
+    await f.extension.CaptureAsync([false], f.invocation);
+    assert.deepEqual(f.calls, ['/home/ubuntu/screen.png', 'screen', 'error', 'close']);
 });
 
 test('capture errors close the output and return a D-Bus error', async () => {

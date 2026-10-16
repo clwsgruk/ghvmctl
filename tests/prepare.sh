@@ -16,6 +16,12 @@ if [[ $1 != exec ]]; then
     exit 0
 fi
 shift 3
+# Run the real readiness command against a bus that appears on its second probe.
+if [[ "$*" == 'runuser -u ubuntu -- env DBUS_SESSION_BUS_ADDRESS='* ]]; then
+    shift 6
+    "$@"
+    exit
+fi
 case "$*" in
     'gnome-shell --version')
         printf 'GNOME Shell 50.1\n'
@@ -37,7 +43,15 @@ case "$*" in
         ;;
 esac
 EOF
-chmod +x "$tmp/lxc"
+cat > "$tmp/gdbus" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ ! -f "$TEST_STATE/bus" ]]; then
+    touch "$TEST_STATE/bus"
+    exit 1
+fi
+EOF
+chmod +x "$tmp/lxc" "$tmp/gdbus"
 
 bash "$root/src/ghvmctl" prepare
 [[ -f "$tmp/apt" ]]

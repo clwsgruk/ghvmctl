@@ -67,7 +67,7 @@ prepare_vm() {
 		lxc exec "${VM_NAME}" -- systemctl restart gdm
 		lxc exec "${VM_NAME}" -- runuser -u ubuntu -- env \
 			DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus \
-			timeout 60 gdbus wait --session org.gnome.Shell
+			timeout 60 sh -c 'until gdbus wait --session --timeout=1 org.gnome.Shell 2>/dev/null; do sleep 1; done'
 		exec_in_vm gnome-extensions enable ghvmctl@snapcrafters.io
 		exec_in_vm timeout 60 gdbus wait --session io.snapcrafters.ghvmctl.Screenshot
 	fi
