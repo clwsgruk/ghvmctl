@@ -1,6 +1,8 @@
 name: Pull Request
 
 on:
+  push:
+    branches: [test/26.04-network]
   pull_request:
     branches: [ "**" ]
 
